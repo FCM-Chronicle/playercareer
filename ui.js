@@ -14,6 +14,274 @@ function updateMatchInterface() {
                 fixture.home === playerTeamKey || fixture.away === playerTeamKey
             );
         }
+
+// 누락된 글로벌 함수들 추가
+function showCreatePlayer() {
+    hideAllScreens();
+    document.getElementById('createPlayerScreen').classList.remove('hidden');
+}
+
+function showPlayerSelect() {
+    hideAllScreens();
+    document.getElementById('playerSelectScreen').classList.remove('hidden');
+    initializePlayerGrid();
+}
+
+function startWithSelectedPlayer() {
+    if (!selectedPlayer) {
+        alert('선수를 선택해주세요.');
+        return;
+    }
+    
+    try {
+        console.log('선택된 선수:', selectedPlayer);
+        gameState.player = createRealPlayerData(selectedPlayer);
+        console.log('플레이어 생성 완료:', gameState.player);
+        
+        showGameScreen();
+        showWelcomeEvent();
+        
+        console.log('게임 시작 완료');
+    } catch (error) {
+        console.error('실제 선수 게임 시작 오류:', error);
+        alert('게임 시작 중 오류가 발생했습니다: ' + error.message);
+    }
+}
+
+function createNewPlayer() {
+    console.log('새 선수 생성 시도...');
+    
+    const name = document.getElementById('playerName').value.trim();
+    const position = document.getElementById('playerPosition').value;
+    const age = document.getElementById('playerAge').value;
+    const nationality = document.getElementById('playerNationality').value;
+    const background = document.getElementById('playerBackground').value;
+    
+    console.log('입력값:', { name, position, age, nationality, background });
+    
+    if (!name) {
+        alert('선수 이름을 입력해주세요.');
+        return;
+    }
+    
+    try {
+        gameState.player = createNewPlayerData(name, position, age, background);
+        gameState.player.customNationality = nationality;
+        
+        console.log('새 선수 생성 완료:', gameState.player);
+        
+        showGameScreen();
+        showWelcomeEvent();
+        
+        console.log('새 선수 게임 시작 완료');
+    } catch (error) {
+        console.error('새 선수 생성 오류:', error);
+        alert('선수 생성 중 오류가 발생했습니다: ' + error.message);
+    }
+}
+
+function loadGame() {
+    showLoadModal();
+}
+
+function saveGame() {
+    saveGameToText();
+}
+
+function showLeagueStandings() {
+    updateStandings();
+    const standings = gameState.league.standings.slice(0, 10);
+    
+    let standingsText = '🏆 슈퍼리그 순위표 (상위 10팀)\n\n';
+    standings.forEach((team, index) => {
+        const gd = team.goalsFor - team.goalsAgainst;
+        standingsText += `${index + 1}. ${team.name} - ${team.points}점 (${team.wins}승 ${team.draws}무 ${team.losses}패, 득실차 ${gd > 0 ? '+' : ''}${gd})\n`;
+    });
+    
+    showEvent('📊 리그 현황', standingsText, [
+        {
+            text: '득점왕 보기',
+            effect: () => showTopScorers()
+        },
+        {
+            text: '도움왕 보기', 
+            effect: () => showTopAssists()
+        },
+        {
+            text: '닫기',
+            effect: () => {}
+        }
+    ]);
+}
+
+function showTransferMarket() {
+    const availablePlayers = gameState.transferMarket.available.slice(0, 15);
+    
+    let marketText = '💰 이적 시장 (상위 15명)\n\n';
+    availablePlayers.forEach((player, index) => {
+        marketText += `${index + 1}. ${player.name} (${player.currentTeamName}) - 레이팅 ${player.rating}, ₩${player.price.toLocaleString()}\n`;
+    });
+    
+    showEvent('💰 이적 시장', marketText, [
+        {
+            text: '선수 영입 시도',
+            effect: () => attemptTransfer()
+        },
+        {
+            text: '닫기',
+            effect: () => {}
+        }
+    ]);
+}
+
+function nextWeek() {
+    const player = gameState.player;
+    
+    if (isPlayerInjured(player)) {
+        handleInjuryWeek();
+        return;
+    }
+    
+    applyWeeklyChanges(player);
+    advanceWeek();
+    
+    player.trainedThisWeek = false;
+    player.playedMatchThisWeek = false;
+    
+    const trainBtn = document.querySelector('#trainingSection .btn-primary');
+    if (trainBtn) {
+        trainBtn.disabled = false;
+        trainBtn.textContent = '훈련 시작';
+    }
+    
+    const matchBtn = document.getElementById('startMatchBtn');
+    if (matchBtn && !isPlayerInjured(player)) {
+        matchBtn.disabled = false;
+        matchBtn.textContent = '경기 시작';
+    }
+    
+    document.getElementById('trainingResult').classList.add('hidden');
+    document.getElementById('matchResult').classList.add('hidden');
+    
+    updateDashboard();
+    checkRandomEvents();
+}
+
+function executeTraining() {
+    const player = gameState.player;
+    
+    if (isPlayerInjured(player)) {
+        alert('부상 중에는 훈련할 수 없습니다.');
+        return;
+    }
+    
+    if (player.trainedThisWeek) {
+        alert('이번 주에 이미 훈련을 완료했습니다. 다음 주에 다시 훈련하세요.');
+        return;
+    }
+    
+    const physicalIntensity = parseInt(document.getElementById('physicalTraining').value);
+    const technicalIntensity = parseInt(document.getElementById('technicalTraining').value);
+    const mentalIntensity = parseInt(document.getElementById('mentalTraining').value);
+    
+    const results = [];
+    let totalFatigueIncrease = 0;
+    
+    if (physicalIntensity > 0) {
+        const improvement = calculateTrainingImprovement(physicalIntensity, player.rating, player.potential);
+        if (improvement > 0) {
+            improvePlayerRating(player, improvement);
+            results.push(`💪 피지컬 향상: +${improvement}`);
+        }
+        totalFatigueIncrease += physicalIntensity * 3;
+    }
+    
+    if (technicalIntensity > 0) {
+        const improvement = calculateTrainingImprovement(technicalIntensity, player.rating, player.potential);
+        if (improvement > 0) {
+            improvePlayerRating(player, improvement);
+            results.push(`⚽ 기술 향상: +${improvement}`);
+        }
+        totalFatigueIncrease += technicalIntensity * 3;
+    }
+    
+    if (mentalIntensity > 0) {
+        const moraleImprovement = mentalIntensity * 2;
+        updatePlayerMorale(player, moraleImprovement);
+        results.push(`🧠 멘탈 강화: +${moraleImprovement}`);
+        totalFatigueIncrease += mentalIntensity * 2;
+    }
+    
+    updatePlayerFatigue(player, totalFatigueIncrease);
+    
+    const totalIntensity = physicalIntensity + technicalIntensity + mentalIntensity;
+    if (totalIntensity === 0) {
+        updatePlayerCondition(player, 15);
+        updatePlayerFatigue(player, -20);
+        results.push('😴 완전히 휴식했습니다. 컨디션이 크게 회복되었습니다.');
+    } else if (totalIntensity <= 3) {
+        updatePlayerCondition(player, 5);
+    } else if (totalIntensity >= 7) {
+        updatePlayerCondition(player, -5);
+        results.push('⚠️ 과도한 훈련으로 컨디션이 약간 저하되었습니다.');
+    }
+    
+    if (totalIntensity >= 8 && player.fatigue > 70) {
+        const injuryChance = Math.random();
+        if (injuryChance < 0.1) {
+            const injuryTypes = ['근육 경련', '발목 삠', '무릎 통증', '등 통증'];
+            const injuryType = injuryTypes[Math.floor(Math.random() * injuryTypes.length)];
+            const weeks = Math.floor(Math.random() * 3) + 1;
+            
+            injurePlayer(player, injuryType, weeks);
+            results.push(`🚨 부상 발생: ${injuryType} (${weeks}주 치료 필요)`);
+        }
+    }
+    
+    document.getElementById('trainingResultText').innerHTML = results.join('<br>');
+    document.getElementById('trainingResult').classList.remove('hidden');
+    
+    player.trainedThisWeek = true;
+    
+    const trainBtn = document.querySelector('#trainingSection .btn-primary');
+    if (trainBtn) {
+        trainBtn.disabled = true;
+        trainBtn.textContent = '이번 주 훈련 완료';
+    }
+    
+    updateDashboard();
+}
+
+function startMatch() {
+    const player = gameState.player;
+    
+    if (isPlayerInjured(player)) {
+        alert('부상 중에는 경기에 참여할 수 없습니다.');
+        return;
+    }
+    
+    const hideLoading = showLoading(event.currentTarget);
+    
+    const matchLog = document.getElementById('matchLog');
+    matchLog.classList.remove('hidden');
+    matchLog.innerHTML = '';
+    
+    setTimeout(() => {
+        hideLoading();
+        simulateMatch();
+    }, 1000);
+}
+
+function calculateTrainingImprovement(intensity, currentRating, potential) {
+    if (currentRating >= potential) return 0;
+    
+    const baseImprovement = intensity * 0.5;
+    const potentialFactor = (potential - currentRating) / potential;
+    const randomFactor = Math.random() * 0.5 + 0.75;
+    
+    const improvement = baseImprovement * potentialFactor * randomFactor;
+    return Math.round(improvement);
+}
         
         if (playerMatch) {
             const isHome = playerMatch.home === Object.keys(teamNames).find(key => teamNames[key] === player.team);
