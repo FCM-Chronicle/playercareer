@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>나만의 축구 스토리</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header class="game-header">
+            <h1 class="game-title">⚽ 나만의 축구 스토리</h1>
+            <p>실제 축구선수를 선택하거나 새로운 선수를 만들어 키워보세요!</p>
+        </header>
+
+        <!-- 시작 화면 -->
+        <div id="startScreen" class="screen">
+            <h2 style="text-align: center; margin-bottom: 30px;">게임 시작</h2>
+            <div style="text-align: center;">
+                <button class="btn btn-primary" onclick="showPlayerSelect()">실제 선수로 시작</button>
+                <button class="btn btn-secondary" onclick="showCreatePlayer()">새 선수 생성</button>
+                <button class="btn" onclick="loadGame()">게임 불러오기</button>
+                <input type="file" id="loadFileInput" accept=".json" style="display: none;" onchange="handleFileLoad(event)">
+            </div>
+        </div>
+
+        <!-- 선수 선택 화면 -->
+        <div id="playerSelectScreen" class="screen hidden">
+            <h2 style="text-align: center; margin-bottom: 20px;">실제 선수 선택</h2>
+            
+            <div class="search-box">
+                <input type="text" id="playerSearch" placeholder="선수 이름으로 검색..." oninput="filterPlayers()">
+            </div>
+
+            <div class="filter-tabs">
+                <button class="filter-tab active" onclick="filterByTeam('all')">전체</button>
+                <button class="filter-tab" onclick="filterByTeam('tottenham')">토트넘</button>
+                <button class="filter-tab" onclick="filterByTeam('liverpool')">리버풀</button>
+                <button class="filter-tab" onclick="filterByTeam('manCity')">맨시티</button>
+                <button class="filter-tab" onclick="filterByTeam('arsenal')">아스날</button>
+                <button class="filter-tab" onclick="filterByTeam('realMadrid')">레알 마드리드</button>
+                <button class="filter-tab" onclick="filterByTeam('barcelona')">바르셀로나</button>
+                <button class="filter-tab" onclick="filterByTeam('bayern')">바이에른</button>
+                <button class="filter-tab" onclick="filterByTeam('psg')">PSG</button>
+            </div>
+
+            <div id="selectedPlayerInfo" class="selected-player-info hidden">
+                <h3>선택된 선수</h3>
+                <div id="selectedPlayerDetails"></div>
+                <div style="text-align: center; margin-top: 15px;">
+                    <button class="btn btn-primary" onclick="startWithSelectedPlayer()">이 선수로 시작</button>
+                </div>
+            </div>
+
+            <div id="playerGrid" class="player-grid">
+                <!-- 선수 카드들이 여기에 동적으로 생성됩니다 -->
+            </div>
+
+            <div style="text-align: center; margin-top: 30px;">
+                <button class="btn" onclick="showStartScreen()">뒤로 가기</button>
+            </div>
+        </div>
+
+        <!-- 선수 생성 화면 -->
+        <div id="createPlayerScreen" class="screen hidden">
+            <h2 style="text-align: center; margin-bottom: 30px;">새 선수 생성</h2>
+            
+            <div class="input-group">
+                <label for="playerName">선수 이름</label>
+                <input type="text" id="playerName" placeholder="이름을 입력하세요">
+            </div>
+
+            <div class="input-group">
+                <label for="playerPosition">포지션</label>
+                <select id="playerPosition">
+                    <option value="GK">골키퍼 (GK)</option>
+                    <option value="DF">수비수 (DF)</option>
+                    <option value="MF">미드필더 (MF)</option>
+                    <option value="FW">공격수 (FW)</option>
+                </select>
+            </div>
+
+            <div class="input-group">
+                <label for="playerAge">나이</label>
+                <select id="playerAge">
+                    <option value="16">16세 (최고 잠재력)</option>
+                    <option value="17">17세 (높은 잠재력)</option>
+                    <option value="18">18세 (보통 잠재력)</option>
+                    <option value="19">19세 (낮은 잠재력)</option>
+                </select>
+            </div>
+
+            <div class="input-group">
+                <label for="playerBackground">배경 스토리</label>
+                <select id="playerBackground">
+                    <option value="poor_talent">가난한 마을의 재능 (높은 잠재력, 낮은 시작 능력치)</option>
+                    <option value="elite_youth">명문 유소년 팀의 기대주 (균형잡힌 시작)</option>
+                    <option value="injury_comeback">부상에서 복귀한 선수 (높은 멘탈, 낮은 피지컬)</option>
+                </select>
+            </div>
+
+            <div style="text-align: center; margin-top: 30px;">
+                <button class="btn btn-primary" onclick="createNewPlayer()">선수 생성</button>
+                <button class="btn" onclick="showStartScreen()">뒤로 가기</button>
+            </div>
+        </div>
+
+        <!-- 메인 게임 화면 -->
+        <div id="gameScreen" class="screen hidden">
+            <!-- 대시보드 -->
+            <div id="dashboardSection">
+                <h2>📊 선수 현황 - 시즌 <span id="currentSeason">1</span>, <span id="currentWeek">1</span>주차</h2>
+                
+                <div class="dashboard-grid">
+                    <div class="player-card">
+                        <div class="player-name" id="dashPlayerName">-</div>
+                        <div class="player-info">
+                            <div class="player-stat">
+                                <div class="stat-label">나이</div>
+                                <div class="stat-value" id="dashPlayerAge">-</div>
+                            </div>
+                            <div class="player-stat">
+                                <div class="stat-label">포지션</div>
+                                <div class="stat-value" id="dashPlayerPosition">-</div>
+                            </div>
+                            <div class="player-stat">
+                                <div class="stat-label">소속팀</div>
+                                <div class="stat-value" id="dashTeam">-</div>
+                            </div>
+                            <div class="player-stat">
+                                <div class="stat-label">명성</div>
+                                <div class="stat-value" id="dashFame">-</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="stats-card">
+                        <h3>능력치</h3>
+                        <div class="stat-bar">
+                            <div class="stat-label">종합 능력치 <span id="overallRating">-</span></div>
+                            <div class="progress-bar">
+                                <div class="progress-fill" id="overallBar"></div>
+                            </div>
+                        </div>
+                        <div class="stat-bar">
+                            <div class="stat-label">컨디션 <span id="conditionValue">-</span></div>
+                            <div class="progress-bar">
+                                <div class="progress-fill condition-bar" id="conditionBar"></div>
+                            </div>
+                        </div>
+                        <div class="stat-bar">
+                            <div class="stat-label">피로도 <span id="fatigueValue">-</span></div>
+                            <div class="progress-bar">
+                                <div class="progress-fill fatigue-bar" id="fatigueBar"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 알림 -->
+                <div id="notifications" class="event-box">
+                    <strong>📢 이번 주 알림</strong>
+                    <div id="notificationText">새로운 시즌이 시작되었습니다!</div>
+                </div>
+
+                <!-- 메뉴 버튼 -->
+                <div class="menu-buttons">
+                    <button class="btn btn-primary" onclick="showTraining()">훈련하기</button>
+                    <button class="btn btn-secondary" onclick="showMatch()">경기 참여</button>
+                    <button class="btn" onclick="showPlayerInfo()">선수 정보</button>
+                    <button class="btn" onclick="nextWeek()">다음 주로</button>
+                    <button class="btn btn-save" onclick="saveGame()">게임 저장</button>
+                </div>
+            </div>
+
+            <!-- 훈련 섹션 -->
+            <div id="trainingSection" class="hidden">
+                <h2>🏃‍♂️ 훈련 계획</h2>
+                <p>이번 주 훈련 강도를 선택하세요. 강도가 높을수록 향상폭이 크지만 피로도가 쌓입니다.</p>
+                
+                <div class="training-grid">
+                    <div class="training-option">
+                        <label>피지컬 훈련</label>
+                        <select id="physicalTraining">
+                            <option value="0">휴식</option>
+                            <option value="1">가벼운 훈련</option>
+                            <option value="2" selected>보통 훈련</option>
+                            <option value="3">강도 높은 훈련</option>
+                        </select>
+                        <div class="training-preview" id="physicalPreview">적당한 운동량</div>
+                    </div>
+                    
+                    <div class="training-option">
+                        <label>기술 훈련</label>
+                        <select id="technicalTraining">
+                            <option value="0">휴식</option>
+                            <option value="1">가벼운 훈련</option>
+                            <option value="2" selected>보통 훈련</option>
+                            <option value="3">강도 높은 훈련</option>
+                        </select>
+                        <div class="training-preview" id="technicalPreview">적당한 운동량</div>
+                    </div>
+                    
+                    <div class="training-option">
+                        <label>멘탈 훈련</label>
+                        <select id="mentalTraining">
+                            <option value="0">휴식</option>
+                            <option value="1">가벼운 훈련</option>
+                            <option value="2" selected>보통 훈련</option>
+                            <option value="3">강도 높은 훈련</option>
+                        </select>
+                        <div class="training-preview" id="mentalPreview">적당한 운동량</div>
+                    </div>
+                </div>
+
+                <div class="training-summary">
+                    <div class="summary-item">
+                        <span>총 피로도 증가 예상:</span>
+                        <span id="fatiguePreview">보통</span>
+                    </div>
+                </div>
+
+                <div class="menu-buttons">
+                    <button class="btn btn-primary" onclick="executeTraining()">훈련 시작</button>
+                    <button class="btn" onclick="showDashboard()">대시보드로</button>
+                </div>
+
+                <div id="trainingResult" class="event-box hidden">
+                    <strong>📈 훈련 결과</strong>
+                    <div id="trainingResultText"></div>
+                </div>
+            </div>
+
+            <!-- 경기 섹션 -->
+            <div id="matchSection" class="hidden">
+                <h2>⚽ 경기</h2>
+                
+                <div class="match-info">
+                    <div class="match-details">
+                        <h3 id="nextMatchInfo">청소년팀 vs 라이벌팀</h3>
+                        <div class="match-stats">
+                            <div class="stat-item">
+                                <span>예상 출전 시간:</span>
+                                <span id="expectedPlayTime">90분</span>
+                            </div>
+                            <div class="stat-item">
+                                <span>현재 컨디션:</span>
+                                <span id="matchCondition">85%</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="menu-buttons">
+                    <button class="btn btn-primary" onclick="startMatch()" id="startMatchBtn">경기 시작</button>
+                    <button class="btn" onclick="showDashboard()">대시보드로</button>
+                </div>
+
+                <div id="matchLog" class="game-log hidden"></div>
+                
+                <div id="matchResult" class="event-box hidden">
+                    <strong>📊 경기 결과</strong>
+                    <div id="matchResultText"></div>
+                </div>
+            </div>
+
+            <!-- 선수 정보 섹션 -->
+            <div id="playerInfoSection" class="hidden">
+                <h2>👤 선수 정보</h2>
+                <div id="detailedStats">
+                    <!-- 상세 정보가 여기에 표시됩니다 -->
+                </div>
+                <div class="menu-buttons">
+                    <button class="btn" onclick="showDashboard()">대시보드로</button>
+                </div>
+            </div>
+
+            <!-- 이벤트 팝업 -->
+            <div id="eventModal" class="modal hidden">
+                <div class="modal-content">
+                    <h3 id="eventTitle">📰 이벤트</h3>
+                    <div id="eventText"></div>
+                    <div id="eventChoices" class="choice-buttons"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript 파일들 -->
+    <script src="data/teams.js"></script>
+    <script src="js/gameState.js"></script>
+    <script src="js/player.js"></script>
+    <script src="js/training.js"></script>
+    <script src="js/match.js"></script>
+    <script src="js/events.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>
