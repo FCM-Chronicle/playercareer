@@ -1,4 +1,466 @@
-// 메인 게임 로직 및 이벤트 핸들러
+// 국가대표 이벤트 생성
+function generateNationalTeamEvent(competition, nationality) {
+    const countryNames = {
+        'KOR': '대한민국',
+        'JPN': '일본', 
+        'BRA': '브라질',
+        'ARG': '아르헨티나',
+        'FRA': '프랑스',
+        'ENG': '잉글랜드',
+        'GER': '독일',
+        'EGY': '이집트'
+    };
+    
+    const countryName = countryNames[nationality] || '국가대표팀';
+    
+    showEvent('🏆 국가대표 소집', 
+        `${countryName} 국가대표팀에서 ${competition.name}을(를) 위해 당신을 소집했습니다! 이는 선수로서 최고의 영예입니다.`,
+        [
+            {
+                text: '영광스럽게 참가하겠습니다!',
+                effect: () => {
+                    updatePlayerMorale(player, -3);
+                    updatePlayerFame(player, +2); // 충성도 보상
+                }
+            }
+        ]
+    );
+}
+
+// 리그 정보 표시 함수
+function showLeagueStandings() {
+    updateStandings();
+    const standings = gameState.league.standings.slice(0, 10); // 상위 10팀
+    
+    let standingsText = '🏆 슈퍼리그 순위표 (상위 10팀)\n\n';
+    standings.forEach((team, index) => {
+        const gd = team.goalsFor - team.goalsAgainst;
+        standingsText += `${index + 1}. ${team.name} - ${team.points}점 (${team.wins}승 ${team.draws}무 ${team.losses}패, 득실차 ${gd > 0 ? '+' : ''}${gd})\n`;
+    });
+    
+    showEvent('📊 리그 현황', standingsText, [
+        {
+            text: '득점왕 보기',
+            effect: () => showTopScorers()
+        },
+        {
+            text: '도움왕 보기', 
+            effect: () => showTopAssists()
+        },
+        {
+            text: '닫기',
+            effect: () => {}
+        }
+    ]);
+}
+
+// 득점왕 표시
+function showTopScorers() {
+    const topScorers = gameState.league.topScorers.slice(0, 10);
+    
+    let scorersText = '⚽ 득점왕 순위 (상위 10명)\n\n';
+    topScorers.forEach((scorer, index) => {
+        const flag = getFlagEmoji(scorer.nationality);
+        scorersText += `${index + 1}. ${scorer.name} (${scorer.team}) ${flag} - ${scorer.goals}골\n`;
+    });
+    
+    showEvent('⚽ 득점왕', scorersText, [
+        {
+            text: '확인',
+            effect: () => {}
+        }
+    ]);
+}
+
+// 도움왕 표시
+function showTopAssists() {
+    const topAssists = gameState.league.topAssists.slice(0, 10);
+    
+    let assistsText = '🅰️ 도움왕 순위 (상위 10명)\n\n';
+    topAssists.forEach((assist, index) => {
+        const flag = getFlagEmoji(assist.nationality);
+        assistsText += `${index + 1}. ${assist.name} (${assist.team}) ${flag} - ${assist.assists}도움\n`;
+    });
+    
+    showEvent('🅰️ 도움왕', assistsText, [
+        {
+            text: '확인',
+            effect: () => {}
+        }
+    ]);
+}
+
+// 국기 이모지 매핑
+function getFlagEmoji(nationality) {
+    const flags = {
+        'KOR': '🇰🇷',
+        'JPN': '🇯🇵', 
+        'BRA': '🇧🇷',
+        'ARG': '🇦🇷',
+        'FRA': '🇫🇷',
+        'ENG': '🏴󠁧󠁢󠁥󠁮󠁧󠁿',
+        'GER': '🇩🇪',
+        'EGY': '🇪🇬',
+        'OTHER': '🌍'
+    };
+    return flags[nationality] || '🌍';
+}
+
+// 이적 시장 표시
+function showTransferMarket() {
+    const availablePlayers = gameState.transferMarket.available.slice(0, 15);
+    
+    let marketText = '💰 이적 시장 (상위 15명)\n\n';
+    availablePlayers.forEach((player, index) => {
+        marketText += `${index + 1}. ${player.name} (${player.currentTeamName}) - 레이팅 ${player.rating}, ₩${player.price.toLocaleString()}\n`;
+    });
+    
+    showEvent('💰 이적 시장', marketText, [
+        {
+            text: '선수 영입 시도',
+            effect: () => attemptTransfer()
+        },
+        {
+            text: '닫기',
+            effect: () => {}
+        }
+    ]);
+}
+
+// 이적 시도
+function attemptTransfer() {
+    // 간단한 이적 시스템 - 무작위로 성공/실패
+    const player = gameState.player;
+    const playerValue = calculatePlayerValue(player);
+    
+    if (Math.random() < 0.3) { // 30% 성공률
+        generateTransferOfferEvent();
+    } else {
+        showEvent('📞 이적 실패', 
+            '아직 다른 팀에서 당신에게 관심을 보이지 않고 있습니다. 더 좋은 성과를 내서 관심을 끌어보세요!',
+            [{
+                text: '더 열심히 하겠습니다',
+                effect: () => updatePlayerMorale(player, +3)
+            }]
+        );
+    }
+}
+
+// 경기에서 상대팀을 실제 팀으로 변경
+function updateMatchInterface() {
+    const player = gameState.player;
+    
+    // 현재 주차의 경기 찾기
+    const currentFixtures = gameState.league.fixtures[gameState.currentWeek - 1];
+    let playerMatch = null;
+    
+    if (currentFixtures) {
+        // 플레이어 팀의 경기 찾기
+        const playerTeamKey = Object.keys(teamNames).find(key => teamNames[key] === player.team);
+        playerMatch = currentFixtures.find(fixture => 
+            fixture.home === playerTeamKey || fixture.away === playerTeamKey
+        );
+    }
+    
+    if (playerMatch) {
+        const isHome = playerMatch.home === Object.keys(teamNames).find(key => teamNames[key] === player.team);
+        const opponent = isHome ? playerMatch.awayName : playerMatch.homeName;
+        const venue = isHome ? '(홈)' : '(어웨이)';
+        
+        document.getElementById('nextMatchInfo').textContent = `${player.team} vs ${opponent} ${venue}`;
+    } else {
+        document.getElementById('nextMatchInfo').textContent = `${player.team} - 이번 주 경기 없음`;
+    }
+    
+    // 경기 관련 정보
+    document.getElementById('expectedPlayTime').textContent = player.condition > 70 ? '90분' : '45분';
+    document.getElementById('matchCondition').textContent = `${player.condition}%`;
+    
+    // 경기 버튼 상태 체크
+    const startBtn = document.getElementById('startMatchBtn');
+    if (startBtn) {
+        if (player.playedMatchThisWeek) {
+            startBtn.disabled = true;
+            startBtn.textContent = '이번 주 경기 완료';
+        } else if (isPlayerInjured(player)) {
+            startBtn.disabled = true;
+            startBtn.textContent = '부상으로 경기 불가';
+        } else if (!playerMatch) {
+            startBtn.disabled = true;
+            startBtn.textContent = '이번 주 경기 없음';
+        } else {
+            startBtn.disabled = false;
+            startBtn.textContent = '경기 시작';
+        }
+    }
+}
+
+// JSON/텍스트 저장 시스템
+function saveGameToText() {
+    const gameData = {
+        player: gameState.player,
+        currentWeek: gameState.currentWeek,
+        currentSeason: gameState.currentSeason,
+        currentYear: gameState.currentYear,
+        league: gameState.league,
+        nationalTeam: gameState.nationalTeam,
+        transferMarket: gameState.transferMarket
+    };
+    
+    const saveText = JSON.stringify(gameData, null, 2);
+    
+    // 텍스트 에리어에 표시
+    showSaveModal(saveText);
+}
+
+// 저장 모달 표시
+function showSaveModal(saveText) {
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.innerHTML = `
+        <div class="modal-content" style="max-width: 600px;">
+            <h3>💾 게임 저장</h3>
+            <p>아래 텍스트를 복사해서 저장하거나, JSON 파일로 다운로드하세요:</p>
+            <textarea readonly style="width: 100%; height: 200px; margin: 15px 0; font-family: monospace; font-size: 12px;">${saveText}</textarea>
+            <div style="text-align: center;">
+                <button class="btn btn-primary" onclick="copyToClipboard('${btoa(saveText)}')">📋 클립보드 복사</button>
+                <button class="btn btn-secondary" onclick="downloadJSON('${btoa(saveText)}')">📁 JSON 다운로드</button>
+                <button class="btn" onclick="closeSaveModal()">닫기</button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    window.currentSaveModal = modal;
+}
+
+// 클립보드 복사
+function copyToClipboard(encodedText) {
+    const text = atob(encodedText);
+    navigator.clipboard.writeText(text).then(() => {
+        alert('클립보드에 복사되었습니다!');
+    }).catch(() => {
+        alert('복사에 실패했습니다. 수동으로 복사해주세요.');
+    });
+}
+
+// JSON 다운로드
+function downloadJSON(encodedText) {
+    const text = atob(encodedText);
+    const dataBlob = new Blob([text], {type: 'application/json'});
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(dataBlob);
+    link.download = `슈퍼리그_${gameState.player.name}_시즌${gameState.currentSeason}_${gameState.currentWeek}주차.json`;
+    link.click();
+}
+
+// 저장 모달 닫기
+function closeSaveModal() {
+    if (window.currentSaveModal) {
+        document.body.removeChild(window.currentSaveModal);
+        window.currentSaveModal = null;
+    }
+}
+
+// 불러오기 모달 표시
+function showLoadModal() {
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.innerHTML = `
+        <div class="modal-content" style="max-width: 600px;">
+            <h3>📂 게임 불러오기</h3>
+            <p>저장된 텍스트를 붙여넣거나 JSON 파일을 선택하세요:</p>
+            <textarea id="loadTextArea" placeholder="저장된 게임 데이터를 여기에 붙여넣으세요..." style="width: 100%; height: 150px; margin: 15px 0; font-family: monospace; font-size: 12px;"></textarea>
+            <input type="file" id="loadFileInput2" accept=".json" style="margin: 10px 0;">
+            <div style="text-align: center;">
+                <button class="btn btn-primary" onclick="loadFromText()">📋 텍스트에서 불러오기</button>
+                <button class="btn btn-secondary" onclick="loadFromFile()">📁 파일에서 불러오기</button>
+                <button class="btn" onclick="closeLoadModal()">닫기</button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    window.currentLoadModal = modal;
+    
+    // 파일 입력 이벤트
+    document.getElementById('loadFileInput2').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                document.getElementById('loadTextArea').value = e.target.result;
+            };
+            reader.readAsText(file);
+        }
+    });
+}
+
+// 텍스트에서 불러오기
+function loadFromText() {
+    const text = document.getElementById('loadTextArea').value.trim();
+    if (!text) {
+        alert('불러올 데이터를 입력해주세요.');
+        return;
+    }
+    
+    try {
+        const gameData = JSON.parse(text);
+        
+        // 게임 상태 복원
+        gameState.player = gameData.player;
+        gameState.currentWeek = gameData.currentWeek;
+        gameState.currentSeason = gameData.currentSeason;
+        gameState.currentYear = gameData.currentYear;
+        gameState.league = gameData.league;
+        gameState.nationalTeam = gameData.nationalTeam;
+        gameState.transferMarket = gameData.transferMarket;
+        
+        closeLoadModal();
+        showGameScreen();
+        alert('게임을 성공적으로 불러왔습니다!');
+        
+    } catch (error) {
+        alert('잘못된 데이터 형식입니다. 올바른 저장 데이터를 입력해주세요.');
+        console.error('로드 오류:', error);
+    }
+}
+
+// 파일에서 불러오기
+function loadFromFile() {
+    loadFromText(); // 텍스트 영역의 내용으로 불러오기
+}
+
+// 불러오기 모달 닫기
+function closeLoadModal() {
+    if (window.currentLoadModal) {
+        document.body.removeChild(window.currentLoadModal);
+        window.currentLoadModal = null;
+    }
+}
+
+// 기존 saveGame과 loadGame 함수 수정
+function saveGame() {
+    saveGameToText();
+}
+
+function loadGame() {
+    showLoadModal();
+}Fame(gameState.player, +15);
+                    updatePlayerMorale(gameState.player, +20);
+                    gameState.nationalTeam.callUps.push({
+                        year: gameState.currentYear,
+                        competition: competition.name,
+                        type: competition.type
+                    });
+                    
+                    // 국가대표 경기 시뮬레이션
+                    simulateNationalTeamMatches(competition, nationality);
+                }
+            },
+            {
+                text: '부상 위험으로 거절',
+                effect: () => {
+                    updatePlayerMorale(gameState.player, -10);
+                    updatePlayerFame(gameState.player, -5);
+                }
+            }
+        ]
+    );
+}
+
+// 국가대표 경기 시뮬레이션
+function simulateNationalTeamMatches(competition, nationality) {
+    const matches = Math.floor(Math.random() * 3) + 2; // 2-4경기
+    let totalGoals = 0;
+    let totalAssists = 0;
+    
+    for (let i = 0; i < matches; i++) {
+        const goals = Math.random() < 0.3 ? 1 : 0;
+        const assists = Math.random() < 0.2 ? 1 : 0;
+        totalGoals += goals;
+        totalAssists += assists;
+    }
+    
+    // 성과에 따른 보상
+    const performance = totalGoals + totalAssists;
+    let message = `${competition.name}에서 ${matches}경기를 치뤘습니다.\n`;
+    message += `개인 성과: ${totalGoals}골 ${totalAssists}도움\n`;
+    
+    if (performance >= 3) {
+        message += '환상적인 활약으로 팀의 영웅이 되었습니다!';
+        updatePlayerFame(gameState.player, +10);
+        updatePlayerMorale(gameState.player, +15);
+    } else if (performance >= 1) {
+        message += '준수한 활약을 보여주었습니다.';
+        updatePlayerFame(gameState.player, +5);
+        updatePlayerMorale(gameState.player, +5);
+    } else {
+        message += '아쉬운 성과였지만 귀중한 경험이었습니다.';
+        updatePlayerMorale(gameState.player, +3);
+    }
+    
+    // 국가대표 경험으로 피로도 증가
+    updatePlayerFatigue(gameState.player, +20);
+    
+    showEvent('🇰🇷 국가대표 활동 결과', message, [
+        {
+            text: '다음에 더 잘하겠습니다!',
+            effect: () => {
+                updatePlayerForm(gameState.player, +5);
+            }
+        }
+    ]);
+}
+
+// 이적 제안 이벤트 생성
+function generateTransferOfferEvent() {
+    const player = gameState.player;
+    const availableTeams = superLeagueTeams.filter(team => teamNames[team] !== player.team);
+    
+    if (availableTeams.length === 0) return;
+    
+    const interestedTeam = availableTeams[Math.floor(Math.random() * availableTeams.length)];
+    const teamName = teamNames[interestedTeam];
+    const currentValue = calculatePlayerValue(player);
+    const offerSalary = player.salary * (1.2 + Math.random() * 0.5); // 20-70% 인상
+    
+    showEvent('📞 이적 제안', 
+        `${teamName}에서 당신에게 관심을 보이고 있습니다! 주급 ₩${Math.floor(offerSalary).toLocaleString()}을 제안했습니다.`,
+        [
+            {
+                text: '이적하겠습니다!',
+                effect: () => {
+                    // 현재 팀에서 제거
+                    const currentTeam = gameState.league.teams.find(t => t.name === player.team);
+                    if (currentTeam) {
+                        const playerIndex = currentTeam.players.findIndex(p => p.name === player.name);
+                        if (playerIndex !== -1) {
+                            currentTeam.players.splice(playerIndex, 1);
+                        }
+                    }
+                    
+                    // 새 팀으로 이적
+                    const newTeam = gameState.league.teams.find(t => t.key === interestedTeam);
+                    if (newTeam) {
+                        newTeam.players.push({
+                            name: player.name,
+                            position: player.position,
+                            rating: calculateOverallRating(player),
+                            age: player.age
+                        });
+                    }
+                    
+                    // 플레이어 정보 업데이트
+                    transferPlayer(player, teamName, Math.floor(offerSalary));
+                    updatePlayerFame(player, +5);
+                    updatePlayerMorale(player, +10);
+                }
+            },
+            {
+                text: '현재 팀에 잔류',
+                effect: () => {
+                    updatePlayer// 메인 게임 로직 및 이벤트 핸들러
 
 // 페이지 로드 시 초기화
 document.addEventListener('DOMContentLoaded', function() {
@@ -48,6 +510,7 @@ function createNewPlayer() {
     const name = document.getElementById('playerName').value.trim();
     const position = document.getElementById('playerPosition').value;
     const age = document.getElementById('playerAge').value;
+    const nationality = document.getElementById('playerNationality').value;
     const background = document.getElementById('playerBackground').value;
     
     if (!name) {
@@ -57,9 +520,9 @@ function createNewPlayer() {
     
     // 새 선수 생성
     gameState.player = createNewPlayerData(name, position, age, background);
+    gameState.player.customNationality = nationality; // 사용자 선택 국적 저장
     
     showGameScreen();
-    autoSave();
     
     // 시작 이벤트 생성
     showWelcomeEvent();
@@ -148,6 +611,28 @@ function nextWeek() {
     
     // 다음 주로 이동
     advanceWeek();
+    
+    // 훈련 상태 초기화
+    player.trainedThisWeek = false;
+    player.playedMatchThisWeek = false;
+    
+    // 훈련 버튼 다시 활성화
+    const trainBtn = document.querySelector('#trainingSection .btn-primary');
+    if (trainBtn) {
+        trainBtn.disabled = false;
+        trainBtn.textContent = '훈련 시작';
+    }
+    
+    // 경기 버튼 다시 활성화
+    const matchBtn = document.getElementById('startMatchBtn');
+    if (matchBtn && !isPlayerInjured(player)) {
+        matchBtn.disabled = false;
+        matchBtn.textContent = '경기 시작';
+    }
+    
+    // 훈련 결과 숨기기
+    document.getElementById('trainingResult').classList.add('hidden');
+    document.getElementById('matchResult').classList.add('hidden');
     
     // UI 업데이트
     updateDashboard();
@@ -321,6 +806,12 @@ function executeTraining() {
         return;
     }
     
+    // 이미 이번 주에 훈련했는지 체크
+    if (player.trainedThisWeek) {
+        alert('이번 주에 이미 훈련을 완료했습니다. 다음 주에 다시 훈련하세요.');
+        return;
+    }
+    
     const physicalIntensity = parseInt(document.getElementById('physicalTraining').value);
     const technicalIntensity = parseInt(document.getElementById('technicalTraining').value);
     const mentalIntensity = parseInt(document.getElementById('mentalTraining').value);
@@ -403,6 +894,16 @@ function executeTraining() {
     document.getElementById('trainingResultText').innerHTML = results.join('<br>');
     document.getElementById('trainingResult').classList.remove('hidden');
     
+    // 이번 주 훈련 완료 표시
+    player.trainedThisWeek = true;
+    
+    // 훈련 버튼 비활성화
+    const trainBtn = document.querySelector('#trainingSection .btn-primary');
+    if (trainBtn) {
+        trainBtn.disabled = true;
+        trainBtn.textContent = '이번 주 훈련 완료';
+    }
+    
     // UI 업데이트
     updateDashboard();
     autoSave();
@@ -446,12 +947,29 @@ function startMatch() {
 // 경기 시뮬레이션
 function simulateMatch() {
     const player = gameState.player;
+    
+    // 현재 주차의 플레이어 팀 경기 찾기
+    const currentFixtures = gameState.league.fixtures[gameState.currentWeek - 1];
+    const playerTeamKey = Object.keys(teamNames).find(key => teamNames[key] === player.team);
+    const playerMatch = currentFixtures.find(fixture => 
+        fixture.home === playerTeamKey || fixture.away === playerTeamKey
+    );
+    
+    if (!playerMatch) {
+        addMatchEvent('이번 주는 경기가 없습니다.');
+        return;
+    }
+    
+    const isHome = playerMatch.home === playerTeamKey;
+    const opponent = isHome ? playerMatch.awayName : playerMatch.homeName;
+    const venue = isHome ? '홈' : '어웨이';
+    
     const matchEvents = [
-        '⚽ 경기 시작!',
+        `⚽ 경기 시작! ${player.team} vs ${opponent} (${venue})`,
         `${player.name}이(가) 킥오프에 참여합니다.`,
         '팀이 공격을 시도합니다.',
         `${player.name}의 움직임이 돋보입니다!`,
-        '상대팀의 반격이 이어집니다.',
+        `${opponent}의 반격이 이어집니다.`,
         `${player.name}이(가) 수비에 가담합니다.`,
         '전반 30분이 지났습니다.',
         '양 팀 모두 치열하게 경합하고 있습니다.',
@@ -460,6 +978,7 @@ function simulateMatch() {
         '후반전 시작!',
         `${player.name}의 적극적인 플레이!`,
         '결정적인 순간이 다가옵니다.',
+        `${opponent}과의 치열한 경합이 계속됩니다.`,
         '경기가 막바지로 향하고 있습니다.',
         '추가시간 없이 경기 종료!'
     ];
@@ -511,6 +1030,16 @@ function finishMatch() {
         updatePlayerFame(player, +2);
     } else if (matchStats.rating < 6.0) {
         updatePlayerFame(player, -1);
+    }
+    
+    // 이번 주 경기 완료 표시
+    player.playedMatchThisWeek = true;
+    
+    // 경기 버튼 비활성화
+    const matchBtn = document.getElementById('startMatchBtn');
+    if (matchBtn) {
+        matchBtn.disabled = true;
+        matchBtn.textContent = '이번 주 경기 완료';
     }
     
     // 결과 표시
