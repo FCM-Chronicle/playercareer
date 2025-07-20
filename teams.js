@@ -407,7 +407,16 @@ const teamNames = {
     realMadrid: "레알 마드리드",
     barcelona: "FC 바르셀로나",
     bayern: "바이에른 뮌헨",
-    psg: "파리 생제르맹"
+    psg: "파리 생제르맹",
+    acMilan: "AC 밀란",
+    inter: "인터 밀란",
+    napoli: "나폴리",
+    asRoma: "AS 로마",
+    leverkusen: "바이어 레버쿠젠",
+    dortmund: "보루시아 도르트문트",
+    newCastle: "뉴캐슬 유나이티드",
+    chelsea: "첼시 FC",
+    atMadrid: "아틀레티코 마드리드"
 };
 
 // 포지션 이름 매핑
