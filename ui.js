@@ -535,3 +535,47 @@ function showLoading(buttonElement) {
         buttonElement.disabled = false;
     };
 }
+
+// 이벤트 표시 함수 (main.js에서 사용)
+function showEvent(title, text, choices) {
+    console.log('이벤트 표시:', title);
+    
+    // 모달이 이미 존재하면 제거
+    const existingModal = document.getElementById('eventModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    // 새 모달 생성
+    const modal = document.createElement('div');
+    modal.id = 'eventModal';
+    modal.className = 'modal';
+    
+    modal.innerHTML = `
+        <div class="modal-content">
+            <h3>${title}</h3>
+            <p style="white-space: pre-line; margin: 20px 0;">${text}</p>
+            <div id="eventChoicesContainer" class="choice-buttons"></div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // 선택지 버튼 추가
+    const choicesContainer = document.getElementById('eventChoicesContainer');
+    choices.forEach(choice => {
+        const button = document.createElement('button');
+        button.className = 'btn';
+        button.textContent = choice.text;
+        button.onclick = () => {
+            try {
+                choice.effect();
+                modal.remove();
+            } catch (error) {
+                console.error('이벤트 선택 효과 오류:', error);
+                modal.remove();
+            }
+        };
+        choicesContainer.appendChild(button);
+    });
+}
