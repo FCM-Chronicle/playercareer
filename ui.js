@@ -277,8 +277,25 @@ function updateNotifications() {
 
 // 훈련 인터페이스 업데이트
 function updateTrainingInterface() {
-    // 훈련 선택에 따른 미리보기 업데이트는 별도 함수에서 처리
+    const player = gameState.player;
+    
+    // 훈련 선택에 따른 미리보기 업데이트
     updateTrainingPreview();
+    
+    // 훈련 버튼 상태 체크
+    const trainBtn = document.querySelector('#trainingSection .btn-primary');
+    if (trainBtn) {
+        if (player.trainedThisWeek) {
+            trainBtn.disabled = true;
+            trainBtn.textContent = '이번 주 훈련 완료';
+        } else if (isPlayerInjured(player)) {
+            trainBtn.disabled = true;
+            trainBtn.textContent = '부상으로 훈련 불가';
+        } else {
+            trainBtn.disabled = false;
+            trainBtn.textContent = '훈련 시작';
+        }
+    }
 }
 
 // 경기 인터페이스 업데이트
@@ -294,14 +311,19 @@ function updateMatchInterface() {
     document.getElementById('expectedPlayTime').textContent = player.condition > 70 ? '90분' : '45분';
     document.getElementById('matchCondition').textContent = `${player.condition}%`;
     
-    // 부상 중이면 경기 참여 불가
+    // 경기 버튼 상태 체크
     const startBtn = document.getElementById('startMatchBtn');
-    if (isPlayerInjured(player)) {
-        startBtn.disabled = true;
-        startBtn.textContent = '부상으로 경기 불가';
-    } else {
-        startBtn.disabled = false;
-        startBtn.textContent = '경기 시작';
+    if (startBtn) {
+        if (player.playedMatchThisWeek) {
+            startBtn.disabled = true;
+            startBtn.textContent = '이번 주 경기 완료';
+        } else if (isPlayerInjured(player)) {
+            startBtn.disabled = true;
+            startBtn.textContent = '부상으로 경기 불가';
+        } else {
+            startBtn.disabled = false;
+            startBtn.textContent = '경기 시작';
+        }
     }
 }
 
