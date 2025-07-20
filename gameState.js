@@ -28,13 +28,198 @@ let gameState = {
     }
 };
 
-// 나이별 잠재력 설정
-const agePotentialMap = {
-    16: 95,
-    17: 90,
-    18: 85,
-    19: 80
-};
+// 선수 생성 (새로운 선수)
+function createNewPlayerData(name, position, age, background) {
+    console.log('createNewPlayerData 호출:', { name, position, age, background });
+    
+    const backgroundMod = backgroundModifiers[background];
+    const basePotential = agePotentialMap[parseInt(age)];
+    
+    // 포지션별 기본 능력치
+    const baseRatings = getBaseRatingsByPosition(position);
+    
+    const player = {
+        // 기본 정보
+        name: name,
+        position: position,
+        age: parseInt(age),
+        background: background,
+        
+        // 능력치
+        rating: Math.max(50, Math.min(85, baseRatings.overall + backgroundMod.ratingModifier)),
+        potential: Math.min(99, basePotential + backgroundMod.potentialModifier),
+        
+        // 상태
+        condition: 85,
+        fatigue: 10,
+        form: 75,
+        morale: 70 + backgroundMod.mentalBonus,
+        
+        // 경력
+        team: backgroundMod.startingTeam,
+        salary: backgroundMod.startingSalary,
+        contractYears: 2,
+        fame: 5,
+        
+        // 통계
+        careerStats: {
+            appearances: 0,
+            goals: 0,
+            assists: 0,
+            yellowCards: 0,
+            redCards: 0,
+            averageRating: 6.0
+        },
+        
+        // 특성
+        traits: [],
+        skills: [],
+        
+        // 성장 관련
+        trainingFocus: {
+            physical: 2,
+            technical: 2,
+            mental: 2
+        },
+        
+        // 주간 상태
+        trainedThisWeek: false,
+        playedMatchThisWeek: false,
+        
+        // 기타
+        isRealPlayer: false,
+        originalTeam: null
+    };
+    
+    console.log('새 선수 생성 완료:', player);
+    return player;
+}
+
+// 실제 선수로 게임 시작
+function createRealPlayerData(realPlayer) {
+    console.log('createRealPlayerData 호출:', realPlayer);
+    
+    const player = {
+        // 기본 정보
+        name: realPlayer.name,
+        position: realPlayer.position,
+        age: realPlayer.age,
+        background: "real_player",
+        
+        // 능력치 (실제 선수는 현재 레이팅을 기반으로)
+        rating: realPlayer.rating,
+        potential: calculatePotentialFromAge(realPlayer.age, realPlayer.rating),
+        
+        // 상태
+        condition: 85,
+        fatigue: 10,
+        form: 75,
+        morale: 75,
+        
+        // 경력
+        team: realPlayer.teamName,
+        salary: calculateSalaryFromRating(realPlayer.rating),
+        contractYears: Math.floor(Math.random() * 3) + 1,
+        fame: calculateFameFromRating(realPlayer.rating),
+        
+        // 통계
+        careerStats: {
+            appearances: Math.floor(Math.random() * 100) + 50,
+            goals: realPlayer.position === "FW" ? Math.floor(Math.random() * 50) + 10 : Math.floor(Math.random() * 10),
+            assists: Math.floor(Math.random() * 20) + 5,
+            yellowCards: Math.floor(Math.random() * 10),
+            redCards: Math.floor(Math.random() * 3),
+            averageRating: (realPlayer.rating / 10).toFixed(1)
+        },
+        
+        // 특성
+        traits: generateTraitsFromRating(realPlayer.rating),
+        skills: generateSkillsFromPosition(realPlayer.position),
+        
+        // 성장 관련
+        trainingFocus: {
+            physical: 2,
+            technical: 2,
+            mental: 2
+        },
+        
+        // 주간 상태
+        trainedThisWeek: false,
+        playedMatchThisWeek: false,
+        
+        // 기타
+        isRealPlayer: true,
+        originalTeam: realPlayer.team
+    };
+    
+    console.log('실제 선수 생성 완료:', player);
+    return player;
+}
+
+// 포지션별 기본 능력치 계산
+function getBaseRatingsByPosition(position) {
+    const baseRatings = {
+        GK: { overall: 65 },
+        DF: { overall: 68 },
+        MF: { overall: 70 },
+        FW: { overall: 72 }
+    };
+    
+    return baseRatings[position] || baseRatings.MF;
+}
+
+// 나이와 레이팅으로 잠재력 계산
+function calculatePotentialFromAge(age, rating) {
+    if (age <= 20) return Math.min(99, rating + 15);
+    if (age <= 25) return Math.min(99, rating + 10);
+    if (age <= 28) return Math.min(99, rating + 5);
+    if (age <= 32) return rating;
+    return Math.max(rating - 5, 60);
+}
+
+// 레이팅으로 주급 계산
+function calculateSalaryFromRating(rating) {
+    return Math.floor((rating - 50) * 50000) + 100000;
+}
+
+// 레이팅으로 명성 계산
+function calculateFameFromRating(rating) {
+    if (rating >= 90) return 95;
+    if (rating >= 85) return 80;
+    if (rating >= 80) return 65;
+    if (rating >= 75) return 50;
+    if (rating >= 70) return 35;
+    return 20;
+}
+
+// 레이팅으로 특성 생성
+function generateTraitsFromRating(rating) {
+    const traits = [];
+    
+    if (rating >= 90) {
+        traits.push("월드클래스", "리더십");
+    } else if (rating >= 85) {
+        traits.push("스타급", "경험 풍부");
+    } else if (rating >= 80) {
+        traits.push("주전급", "안정적");
+    } else if (rating >= 75) {
+        traits.push("유망주", "성실함");
+    }
+    
+    return traits;
+}
+
+// 포지션별 기술 생성
+function generateSkillsFromPosition(position) {
+    const skillsByPosition = {
+        GK: ["골키핑", "반응속도", "커맨드"],
+        DF: ["태클", "헤딩", "마크"],
+        MF: ["패스", "볼컨트롤", "시야"],
+        FW: ["슈팅", "드리블", "오프더볼"]
+    };
+    
+    return skillsByPosition[position] || skillsByPosition.MF;
+}
 
 // 슈퍼리그 참가 팀 목록 (18개팀)
 const superLeagueTeams = [
