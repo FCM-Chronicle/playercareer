@@ -28,6 +28,14 @@ let gameState = {
     }
 };
 
+// 나이별 잠재력 설정
+const agePotentialMap = {
+    16: 95,
+    17: 90,
+    18: 85,
+    19: 80
+};
+
 // 슈퍼리그 참가 팀 목록 (18개팀)
 const superLeagueTeams = [
     'tottenham', 'liverpool', 'manCity', 'arsenal', // 프리미어리그
