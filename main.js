@@ -576,7 +576,14 @@ function createNewPlayer() {
 
 // 환영 이벤트 표시
 function showWelcomeEvent() {
+    console.log('환영 이벤트 시작');
+    
     const player = gameState.player;
+    if (!player) {
+        console.error('플레이어 데이터가 없습니다');
+        return;
+    }
+    
     const isRealPlayer = player.isRealPlayer;
     
     let eventText = '';
@@ -587,15 +594,17 @@ function showWelcomeEvent() {
         eventText = `${player.name}, 축구의 세계에 오신 것을 환영합니다! ${bgText}를 가진 당신의 축구 인생이 지금 시작됩니다. ${player.team}에서 첫 발걸음을 내딛으며, 언젠가는 세계 최고의 선수가 되는 꿈을 이루어 나가세요!`;
     }
     
-    showEvent('🎉 새로운 시작', eventText, [
-        {
-            text: '열심히 하겠습니다!',
-            effect: () => {
-                updatePlayerMorale(player, +10);
-                updateDashboard();
+    setTimeout(() => {
+        showEvent('🎉 새로운 시작', eventText, [
+            {
+                text: '열심히 하겠습니다!',
+                effect: () => {
+                    updatePlayerMorale(player, +10);
+                    updateDashboard();
+                }
             }
-        }
-    ]);
+        ]);
+    }, 500);
 }
 
 // 게임 저장/불러오기
