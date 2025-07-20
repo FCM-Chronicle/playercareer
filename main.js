@@ -131,7 +131,6 @@ function showTransferMarket() {
 function attemptTransfer() {
     // 간단한 이적 시스템 - 무작위로 성공/실패
     const player = gameState.player;
-    const playerValue = calculatePlayerValue(player);
     
     if (Math.random() < 0.3) { // 30% 성공률
         generateTransferOfferEvent();
@@ -143,55 +142,6 @@ function attemptTransfer() {
                 effect: () => updatePlayerMorale(player, +3)
             }]
         );
-    }
-}
-
-// 경기에서 상대팀을 실제 팀으로 변경
-function updateMatchInterface() {
-    const player = gameState.player;
-    
-    // 현재 주차의 경기 찾기
-    const currentFixtures = gameState.league.fixtures[gameState.currentWeek - 1];
-    let playerMatch = null;
-    
-    if (currentFixtures) {
-        // 플레이어 팀의 경기 찾기
-        const playerTeamKey = Object.keys(teamNames).find(key => teamNames[key] === player.team);
-        playerMatch = currentFixtures.find(fixture => 
-            fixture.home === playerTeamKey || fixture.away === playerTeamKey
-        );
-    }
-    
-    if (playerMatch) {
-        const isHome = playerMatch.home === Object.keys(teamNames).find(key => teamNames[key] === player.team);
-        const opponent = isHome ? playerMatch.awayName : playerMatch.homeName;
-        const venue = isHome ? '(홈)' : '(어웨이)';
-        
-        document.getElementById('nextMatchInfo').textContent = `${player.team} vs ${opponent} ${venue}`;
-    } else {
-        document.getElementById('nextMatchInfo').textContent = `${player.team} - 이번 주 경기 없음`;
-    }
-    
-    // 경기 관련 정보
-    document.getElementById('expectedPlayTime').textContent = player.condition > 70 ? '90분' : '45분';
-    document.getElementById('matchCondition').textContent = `${player.condition}%`;
-    
-    // 경기 버튼 상태 체크
-    const startBtn = document.getElementById('startMatchBtn');
-    if (startBtn) {
-        if (player.playedMatchThisWeek) {
-            startBtn.disabled = true;
-            startBtn.textContent = '이번 주 경기 완료';
-        } else if (isPlayerInjured(player)) {
-            startBtn.disabled = true;
-            startBtn.textContent = '부상으로 경기 불가';
-        } else if (!playerMatch) {
-            startBtn.disabled = true;
-            startBtn.textContent = '이번 주 경기 없음';
-        } else {
-            startBtn.disabled = false;
-            startBtn.textContent = '경기 시작';
-        }
     }
 }
 
@@ -460,17 +410,17 @@ function generateTransferOfferEvent() {
             {
                 text: '현재 팀에 잔류',
                 effect: () => {
-                    updatePlayer// 메인 게임 로직 및 이벤트 핸들러
-
-// 페이지 로드 시 초기화
+                    updatePlayer// 페이지 로드 시 초기화
 document.addEventListener('DOMContentLoaded', function() {
-    initializeGame();
+    console.log('게임 초기화 시작...');
     
-    // 로컬 스토리지에서 게임 불러오기 시도
-    if (loadGameState() && gameState.player) {
-        showGameScreen();
-    } else {
+    try {
+        initializeGame();
+        console.log('게임 초기화 완료');
         showStartScreen();
+    } catch (error) {
+        console.error('초기화 오류:', error);
+        alert('게임 초기화 중 오류가 발생했습니다: ' + error.message);
     }
     
     // 훈련 선택 변경 이벤트 리스너
@@ -489,43 +439,139 @@ function setupTrainingListeners() {
     });
 }
 
+// 훈련 미리보기 업데이트 (기본 함수)
+function updateTrainingPreview() {
+    try {
+        const physicalIntensity = parseInt(document.getElementById('physicalTraining')?.value || 0);
+        const technicalIntensity = parseInt(document.getElementById('technicalTraining')?.value || 0);
+        const mentalIntensity = parseInt(document.getElementById('mentalTraining')?.value || 0);
+        
+        const totalIntensity = physicalIntensity + technicalIntensity + mentalIntensity;
+        
+        // 피로도 예상치
+        let fatiguePreview = '';
+        if (totalIntensity <= 3) fatiguePreview = '낮음';
+        else if (totalIntensity <= 6) fatiguePreview = '보통';
+        else fatiguePreview = '높음';
+        
+        const fatigueEl = document.getElementById('fatiguePreview');
+        if (fatigueEl) fatigueEl.textContent = fatiguePreview;
+        
+        // 각 훈련별 미리보기
+        const intensityText = ['휴식', '가벼움', '보통', '강함'];
+        
+        const physicalPreviewEl = document.getElementById('physicalPreview');
+        const technicalPreviewEl = document.getElementById('technicalPreview');
+        const mentalPreviewEl = document.getElementById('mentalPreview');
+        
+        if (physicalPreviewEl) physicalPreviewEl.textContent = intensityText[physicalIntensity];
+        if (technicalPreviewEl) technicalPreviewEl.textContent = intensityText[technicalIntensity];
+        if (mentalPreviewEl) mentalPreviewEl.textContent = intensityText[mentalIntensity];
+    } catch (error) {
+        console.error('훈련 미리보기 업데이트 오류:', error);
+    }
+}
+
+// 주간 이벤트 생성 (기본 함수)
+function generateWeeklyEvents() {
+    // 기본 주간 이벤트 로직
+    const week = gameState.currentWeek;
+    
+    if (week === 1) {
+        console.log('새 시즌 시작');
+    } else if (week === 17) {
+        console.log('시즌 중반');
+    } else if (week === 34) {
+        console.log('시즌 마지막');
+    }
+    
+    // 이적 제안 (낮은 확률)
+    if (Math.random() < 0.05 && gameState.player) { // 5% 확률
+        setTimeout(() => generateTransferOfferEvent(), 1000);
+    }
+}
+
+// 시즌 종료 이벤트 생성 (기본 함수)
+function generateSeasonEndEvent() {
+    if (!gameState.player) return;
+    
+    const player = gameState.player;
+    
+    setTimeout(() => {
+        showEvent('🏆 시즌 종료', 
+            `시즌 ${gameState.currentSeason - 1}이 끝났습니다! 한 해 동안 수고하셨습니다. 새로운 시즌을 맞아 목표를 새롭게 설정해보세요.`,
+            [{
+                text: '다음 시즌 준비하기',
+                effect: () => {
+                    updatePlayerMorale(player, +10);
+                    updatePlayerCondition(player, +20);
+                    updatePlayerFatigue(player, -30);
+                }
+            }]
+        );
+    }, 500);
+}
+
 // 새 게임 시작 함수들
 function startWithSelectedPlayer() {
+    console.log('실제 선수로 게임 시작 시도...');
+    
     if (!selectedPlayer) {
         alert('선수를 선택해주세요.');
         return;
     }
     
-    // 실제 선수로 게임 시작
-    gameState.player = createRealPlayerData(selectedPlayer);
-    
-    showGameScreen();
-    autoSave();
-    
-    // 시작 이벤트 생성
-    showWelcomeEvent();
+    try {
+        // 실제 선수로 게임 시작
+        console.log('선택된 선수:', selectedPlayer);
+        gameState.player = createRealPlayerData(selectedPlayer);
+        console.log('플레이어 생성 완료:', gameState.player);
+        
+        showGameScreen();
+        
+        // 시작 이벤트 생성
+        showWelcomeEvent();
+        
+        console.log('게임 시작 완료');
+    } catch (error) {
+        console.error('실제 선수 게임 시작 오류:', error);
+        alert('게임 시작 중 오류가 발생했습니다: ' + error.message);
+    }
 }
 
 function createNewPlayer() {
+    console.log('새 선수 생성 시도...');
+    
     const name = document.getElementById('playerName').value.trim();
     const position = document.getElementById('playerPosition').value;
     const age = document.getElementById('playerAge').value;
     const nationality = document.getElementById('playerNationality').value;
     const background = document.getElementById('playerBackground').value;
     
+    console.log('입력값:', { name, position, age, nationality, background });
+    
     if (!name) {
         alert('선수 이름을 입력해주세요.');
         return;
     }
     
-    // 새 선수 생성
-    gameState.player = createNewPlayerData(name, position, age, background);
-    gameState.player.customNationality = nationality; // 사용자 선택 국적 저장
-    
-    showGameScreen();
-    
-    // 시작 이벤트 생성
-    showWelcomeEvent();
+    try {
+        // 새 선수 생성
+        gameState.player = createNewPlayerData(name, position, age, background);
+        gameState.player.customNationality = nationality; // 사용자 선택 국적 저장
+        
+        console.log('새 선수 생성 완료:', gameState.player);
+        
+        showGameScreen();
+        
+        // 시작 이벤트 생성
+        showWelcomeEvent();
+        
+        console.log('새 선수 게임 시작 완료');
+    } catch (error) {
+        console.error('새 선수 생성 오류:', error);
+        alert('선수 생성 중 오류가 발생했습니다: ' + error.message);
+    }
 }
 
 // 환영 이벤트 표시
