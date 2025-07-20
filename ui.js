@@ -1,4 +1,59 @@
-// UI 관리 함수들
+// 경기 인터페이스 업데이트
+function updateMatchInterface() {
+    const player = gameState.player;
+    
+    try {
+        // 현재 주차의 경기 찾기
+        const currentFixtures = gameState.league.fixtures[gameState.currentWeek - 1];
+        let playerMatch = null;
+        
+        if (currentFixtures) {
+            // 플레이어 팀의 경기 찾기
+            const playerTeamKey = Object.keys(teamNames).find(key => teamNames[key] === player.team);
+            playerMatch = currentFixtures.find(fixture => 
+                fixture.home === playerTeamKey || fixture.away === playerTeamKey
+            );
+        }
+        
+        if (playerMatch) {
+            const isHome = playerMatch.home === Object.keys(teamNames).find(key => teamNames[key] === player.team);
+            const opponent = isHome ? playerMatch.awayName : playerMatch.homeName;
+            const venue = isHome ? '(홈)' : '(어웨이)';
+            
+            document.getElementById('nextMatchInfo').textContent = `${player.team} vs ${opponent} ${venue}`;
+        } else {
+            document.getElementById('nextMatchInfo').textContent = `${player.team} - 이번 주 경기 없음`;
+        }
+        
+        // 경기 관련 정보
+        document.getElementById('expectedPlayTime').textContent = player.condition > 70 ? '90분' : '45분';
+        document.getElementById('matchCondition').textContent = `${player.condition}%`;
+        
+        // 경기 버튼 상태 체크
+        const startBtn = document.getElementById('startMatchBtn');
+        if (startBtn) {
+            if (player.playedMatchThisWeek) {
+                startBtn.disabled = true;
+                startBtn.textContent = '이번 주 경기 완료';
+            } else if (isPlayerInjured(player)) {
+                startBtn.disabled = true;
+                startBtn.textContent = '부상으로 경기 불가';
+            } else if (!playerMatch) {
+                startBtn.disabled = true;
+                startBtn.textContent = '이번 주 경기 없음';
+            } else {
+                startBtn.disabled = false;
+                startBtn.textContent = '경기 시작';
+            }
+        }
+    } catch (error) {
+        console.error('경기 인터페이스 업데이트 오류:', error);
+        // 기본값 설정
+        document.getElementById('nextMatchInfo').textContent = `${player.team} vs 상대팀`;
+        document.getElementById('expectedPlayTime').textContent = '90분';
+        document.getElementById('matchCondition').textContent = `${player.condition}%`;
+    }
+}// UI 관리 함수들
 
 let selectedPlayer = null;
 let filteredPlayers = [];
