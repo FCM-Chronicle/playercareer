@@ -574,6 +574,13 @@ function createNewPlayer() {
     }
 }
 
+function closeLoadModal() {
+    if (window.currentLoadModal) {
+        document.body.removeChild(window.currentLoadModal);
+        window.currentLoadModal = null;
+    }
+}
+
 // 환영 이벤트 표시
 function showWelcomeEvent() {
     console.log('환영 이벤트 시작');
@@ -605,6 +612,248 @@ function showWelcomeEvent() {
             }
         ]);
     }, 500);
+}
+
+// 누락된 경기 관련 함수들
+function simulateMatch() {
+    const player = gameState.player;
+    
+    const currentFixtures = gameState.league.fixtures[gameState.currentWeek - 1];
+    const playerTeamKey = Object.keys(teamNames).find(key => teamNames[key] === player.team);
+    const playerMatch = currentFixtures ? currentFixtures.find(fixture => 
+        fixture.home === playerTeamKey || fixture.away === playerTeamKey
+    ) : null;
+    
+    if (!playerMatch) {
+        addMatchEvent('이번 주는 경기가 없습니다.');
+        return;
+    }
+    
+    const isHome = playerMatch.home === playerTeamKey;
+    const opponent = isHome ? playerMatch.awayName : playerMatch.homeName;
+    const venue = isHome ? '홈' : '어웨이';
+    
+    const matchEvents = [
+        `⚽ 경기 시작! ${player.team} vs ${opponent} (${venue})`,
+        `${player.name}이(가) 킥오프에 참여합니다.`,
+        '팀이 공격을 시도합니다.',
+        `${player.name}의 움직임이 돋보입니다!`,
+        `${opponent}의 반격이 이어집니다.`,
+        `${player.name}이(가) 수비에 가담합니다.`,
+        '전반 30분이 지났습니다.',
+        '양 팀 모두 치열하게 경합하고 있습니다.',
+        '전반전 종료!',
+        '하프타임입니다.',
+        '후반전 시작!',
+        `${player.name}의 적극적인 플레이!`,
+        '결정적인 순간이 다가옵니다.',
+        `${opponent}과의 치열한 경합이 계속됩니다.`,
+        '경기가 막바지로 향하고 있습니다.',
+        '추가시간 없이 경기 종료!'
+    ];
+    
+    let eventIndex = 0;
+    const eventInterval = setInterval(() => {
+        if (eventIndex < matchEvents.length) {
+            addMatchEvent(matchEvents[eventIndex]);
+            
+            if (eventIndex === 7 && Math.random() < 0.3) {
+                addMatchEvent(`⚽ 골! ${player.name}이(가) 환상적인 골을 기록했습니다!`);
+            } else if (eventIndex === 11 && Math.random() < 0.2) {
+                addMatchEvent(`🅰️ ${player.name}의 완벽한 어시스트!`);
+            }
+            
+            eventIndex++;
+        } else {
+            clearInterval(eventInterval);
+            finishMatch();
+        }
+    }, 800);
+}
+
+function addMatchEvent(eventText) {
+    const matchLog = document.getElementById('matchLog');
+    const eventDiv = document.createElement('div');
+    eventDiv.style.marginBottom = '5px';
+    eventDiv.textContent = `${new Date().toLocaleTimeString()} - ${eventText}`;
+    matchLog.appendChild(eventDiv);
+    matchLog.scrollTop = matchLog.scrollHeight;
+}
+
+function finishMatch() {
+    const player = gameState.player;
+    const matchStats = generateMatchStats(player);
+    
+    updatePlayerStats(player, matchStats);
+    
+    updatePlayerCondition(player, -10);
+    updatePlayerFatigue(player, +15);
+    updatePlayerForm(player, matchStats.rating >= 7.0 ? +5 : -2);
+    
+    if (matchStats.rating >= 8.0) {
+        updatePlayerFame(player, +2);
+    } else if (matchStats.rating < 6.0) {
+        updatePlayerFame(player, -1);
+    }
+    
+    player.playedMatchThisWeek = true;
+    
+    const matchBtn = document.getElementById('startMatchBtn');
+    if (matchBtn) {
+        matchBtn.disabled = true;
+        matchBtn.textContent = '이번 주 경기 완료';
+    }
+    
+    showMatchResult(matchStats);
+    updateDashboard();
+}
+
+function generateMatchStats(player) {
+    const baseRating = calculateMatchRating(player);
+    const goals = player.position === 'FW' && Math.random() < 0.3 ? 1 : 0;
+    const assists = Math.random() < 0.2 ? 1 : 0;
+    const yellowCards = Math.random() < 0.1 ? 1 : 0;
+    const redCards = Math.random() < 0.02 ? 1 : 0;
+    
+    return {
+        rating: baseRating,
+        goals: goals,
+        assists: assists,
+        yellowCards: yellowCards,
+        redCards: redCards,
+        passes: Math.floor(Math.random() * 30) + 20,
+        tackles: player.position === 'DF' ? Math.floor(Math.random() * 8) + 2 : Math.floor(Math.random() * 3),
+        shots: player.position === 'FW' ? Math.floor(Math.random() * 5) + 1 : Math.floor(Math.random() * 2)
+    };
+}
+
+function calculateMatchRating(player) {
+    const overallRating = calculateOverallRating(player);
+    const conditionFactor = player.condition / 100;
+    const fatigueFactor = Math.max(0.7, (100 - player.fatigue) / 100);
+    const formFactor = player.form / 100;
+    
+    const baseRating = (overallRating / 100) * 4 + 5;
+    const finalRating = baseRating * conditionFactor * fatigueFactor * formFactor;
+    
+    const randomFactor = (Math.random() - 0.5) * 1.0;
+    
+    return Math.max(4.0, Math.min(10.0, finalRating + randomFactor));
+}
+
+function showMatchResult(matchStats) {
+    const teamScore = Math.floor(Math.random() * 4);
+    const opponentScore = Math.floor(Math.random() * 3);
+    
+    let result = '';
+    if (teamScore > opponentScore) result = '승리 🎉';
+    else if (teamScore < opponentScore) result = '패배 😔';
+    else result = '무승부 🤝';
+    
+    const resultText = `
+        <strong>경기 결과: ${teamScore} : ${opponentScore} (${result})</strong><br><br>
+        <strong>개인 성과:</strong><br>
+        • 평점: ${matchStats.rating.toFixed(1)}/10<br>
+        • 골: ${matchStats.goals}개<br>
+        • 어시스트: ${matchStats.assists}개<br>
+        • 패스: ${matchStats.passes}개<br>
+        • 태클: ${matchStats.tackles}개<br>
+        • 슈팅: ${matchStats.shots}개<br>
+        ${matchStats.yellowCards > 0 ? `• 경고: ${matchStats.yellowCards}개<br>` : ''}
+        ${matchStats.redCards > 0 ? `• 퇴장: ${matchStats.redCards}개<br>` : ''}
+    `;
+    
+    document.getElementById('matchResultText').innerHTML = resultText;
+    document.getElementById('matchResult').classList.remove('hidden');
+}
+
+// 추가 누락 함수들
+function checkRandomEvents() {
+    if (Math.random() < 0.2) {
+        generateRandomEvent();
+    }
+}
+
+function handleInjuryWeek() {
+    const player = gameState.player;
+    
+    showEvent('🏥 부상 치료', 
+        `부상 치료에 집중했습니다. 컨디션이 조금 회복되었습니다.`, 
+        [{
+            text: '계속 치료하기',
+            effect: () => {
+                updatePlayerCondition(player, +5);
+                updatePlayerMorale(player, +2);
+                advanceWeek();
+                updateDashboard();
+            }
+        }]
+    );
+}
+
+function showTopScorers() {
+    const topScorers = gameState.league.topScorers.slice(0, 10);
+    
+    let scorersText = '⚽ 득점왕 순위 (상위 10명)\n\n';
+    topScorers.forEach((scorer, index) => {
+        const flag = getFlagEmoji(scorer.nationality);
+        scorersText += `${index + 1}. ${scorer.name} (${scorer.team}) ${flag} - ${scorer.goals}골\n`;
+    });
+    
+    showEvent('⚽ 득점왕', scorersText, [
+        {
+            text: '확인',
+            effect: () => {}
+        }
+    ]);
+}
+
+function showTopAssists() {
+    const topAssists = gameState.league.topAssists.slice(0, 10);
+    
+    let assistsText = '🅰️ 도움왕 순위 (상위 10명)\n\n';
+    topAssists.forEach((assist, index) => {
+        const flag = getFlagEmoji(assist.nationality);
+        assistsText += `${index + 1}. ${assist.name} (${assist.team}) ${flag} - ${assist.assists}도움\n`;
+    });
+    
+    showEvent('🅰️ 도움왕', assistsText, [
+        {
+            text: '확인',
+            effect: () => {}
+        }
+    ]);
+}
+
+function getFlagEmoji(nationality) {
+    const flags = {
+        'KOR': '🇰🇷',
+        'JPN': '🇯🇵', 
+        'BRA': '🇧🇷',
+        'ARG': '🇦🇷',
+        'FRA': '🇫🇷',
+        'ENG': '🏴󠁧󠁢󠁥󠁮󠁧󠁿',
+        'GER': '🇩🇪',
+        'EGY': '🇪🇬',
+        'OTHER': '🌍'
+    };
+    return flags[nationality] || '🌍';
+}
+
+function attemptTransfer() {
+    const player = gameState.player;
+    
+    if (Math.random() < 0.3) {
+        generateTransferOfferEvent();
+    } else {
+        showEvent('📞 이적 실패', 
+            '아직 다른 팀에서 당신에게 관심을 보이지 않고 있습니다. 더 좋은 성과를 내서 관심을 끌어보세요!',
+            [{
+                text: '더 열심히 하겠습니다',
+                effect: () => updatePlayerMorale(player, +3)
+            }]
+        );
+    }
 }
 
 // 게임 저장/불러오기
@@ -1212,3 +1461,4 @@ setInterval(() => {
         console.log('자동 저장 완료');
     }
 }, 300000);
+                    
